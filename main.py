@@ -28,21 +28,27 @@ class PokemonFusionPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
         self.pokemon_data = {}
+        self.pokemon_id_map = {}  # ID -> Name 的映射
         self.config = {
             "source": "gitlab"
         }
         self.data_dir = StarTools.get_data_dir()
+        self.session: Optional[aiohttp.ClientSession] = None
         
     async def initialize(self):
         """初始化插件，加载宝可梦数据"""
         try:
+            # 创建 aiohttp session
+            self.session = aiohttp.ClientSession()
             # 确保数据目录存在
             self.data_dir.mkdir(parents=True, exist_ok=True)
             pokemon_file = self.data_dir / "pokemons.json"    
             # 加载数据
             with open(pokemon_file, "r", encoding="utf8") as f:
                 self.pokemon_data = json.load(f)
-            logger.info("宝可梦数据加载成功")
+            # 创建 ID 到名字的反向映射
+            self.pokemon_id_map = {str(v): k for k, v in self.pokemon_data.items()}
+            logger.info("宝可梦数据和ID映射加载成功")
         except FileNotFoundError:
             logger.error("找不到宝可梦数据文件")
             raise
@@ -55,10 +61,7 @@ class PokemonFusionPlugin(Star):
             
     def _get_pokemon_name(self, pid: str) -> str:
         """根据ID获取宝可梦名字"""
-        for name, pid2 in self.pokemon_data.items():
-            if str(pid2) == pid:
-                return name
-        return f"#{pid}"
+        return self.pokemon_id_map.get(pid, f"#{pid}")
             
     def get_similar_names(self, name: str, limit: int = 3) -> List[str]:
         """获取相似的宝可梦名字"""
@@ -71,10 +74,11 @@ class PokemonFusionPlugin(Star):
         
     async def _check_image_exists(self, url: str) -> bool:
         """检查图片URL是否可访问"""
+        if not self.session:
+            return False
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
-                    return response.status == 200
+            async with self.session.get(url) as response:
+                return response.status == 200
         except ClientError as e:
             logger.error(f"检查图片URL失败（网络错误）: {e}")
             return False
@@ -88,10 +92,9 @@ class PokemonFusionPlugin(Star):
         source = AVAILABLE_SOURCES[self.config["source"]]
         
         # 同时检查两个URL
-        urls = [
-            source["custom"].format(n=head_id) + fusion_id,
-            source["autogen"] + head_id + "/" + fusion_id
-        ]
+        custom_url = f"{source['custom'].format(n=head_id)}{fusion_id}"
+        autogen_url = f"{source['autogen']}{head_id}/{fusion_id}"
+        urls = [custom_url, autogen_url]
         
         # 并行检查所有URL
         results = await asyncio.gather(
@@ -158,7 +161,8 @@ class PokemonFusionPlugin(Star):
         """
         # 获取命令后的参数部分
         message = event.message_str.strip()
-        command = message.split()[0] if message else ""
+        parts = message.split()
+        command = parts[0] if parts else ""
         message = message[len(command):].strip() if command else ""
         
         # 解析输入
@@ -175,12 +179,16 @@ class PokemonFusionPlugin(Star):
         fusion_ids = {f"{id1}.{id2}.png", f"{id2}.{id1}.png"}
         
         try:
-            # 先检查图片是否可访问
-            image_urls = []
-            for fusion_id in fusion_ids:
-                image_url = await self.get_fusion_image(fusion_id)
-                if image_url:
-                    image_urls.append(image_url)
+            # 将集合转换为列表，并处理重复的情况
+            fusion_ids_list = list(fusion_ids)
+            # 如果 id1 和 id2 相同，只请求一次
+            if id1 == id2:
+                fusion_ids_list = [fusion_ids_list[0]]
+            
+            # 并行检查图片是否可访问
+            tasks = [self.get_fusion_image(fid) for fid in fusion_ids_list]
+            image_urls_raw = await asyncio.gather(*tasks)
+            image_urls = [url for url in image_urls_raw if url and url != "https://infinitefusion.gitlab.io/pokemon/question.png"]
             
             if not image_urls:
                 chain = [
@@ -235,4 +243,7 @@ class PokemonFusionPlugin(Star):
         
     async def terminate(self):
         """插件卸载时的清理工作"""
+        if self.session:
+            await self.session.close()
         self.pokemon_data = {}
+        self.pokemon_id_map = {}

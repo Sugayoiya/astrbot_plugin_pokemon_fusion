@@ -1,5 +1,5 @@
 name: "pokemon_fusion"
 desc: "宝可梦融合插件，支持指定宝可梦融合和随机融合。"
-version: "v1.0.1"
+version: "v1.0.3"
 author: "sugayoiya"
 repo: "https://github.com/sugayoiya/astrbot_plugin_pokemon_fusion"
