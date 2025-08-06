@@ -67,8 +67,7 @@ class PokemonFusionPlugin(Star):
         """获取相似的宝可梦名字"""
         if not self.pokemon_data:
             return []
-        names = list(self.pokemon_data.keys())
-        similarity_scores = [(n, difflib.SequenceMatcher(None, name, n).quick_ratio()) for n in names]
+        similarity_scores = [(n, difflib.SequenceMatcher(None, name, n).quick_ratio()) for n in self.pokemon_data]
         similarity_scores.sort(key=lambda x: x[1], reverse=True)
         return [name for name, _ in similarity_scores[:limit]]
         
@@ -107,14 +106,14 @@ class PokemonFusionPlugin(Star):
             if isinstance(result, bool) and result:
                 return url
                 
-        # 如果都失败了，返回问号图片
-        return "https://infinitefusion.gitlab.io/pokemon/question.png"
+        # 如果都失败了，返回 None
+        return None
 
     def _get_random_pokemon_id(self) -> str:
         """随机获取一个宝可梦ID"""
         return str(random.choice(list(self.pokemon_data.values())))
 
-    async def _parse_fusion_input(self, message: str) -> Tuple[Union[str, None], Union[str, None], Optional[str]]:
+    def _parse_fusion_input(self, message: str) -> Tuple[Union[str, None], Union[str, None], Optional[str]]:
         """解析融合输入，返回 (id1, id2, error_message)"""
         # 处理随机融合的情况
         if not message or message == "随机":
@@ -166,7 +165,7 @@ class PokemonFusionPlugin(Star):
         message = message[len(command):].strip() if command else ""
         
         # 解析输入
-        id1, id2, error_message = await self._parse_fusion_input(message)
+        id1, id2, error_message = self._parse_fusion_input(message)
         if error_message:
             chain = [
                 Comp.At(qq=event.get_sender_id()),
@@ -179,20 +178,20 @@ class PokemonFusionPlugin(Star):
         fusion_ids = {f"{id1}.{id2}.png", f"{id2}.{id1}.png"}
         
         try:
-            # 将集合转换为列表，并处理重复的情况
+            # 将集合转换为列表（set 自动处理重复情况）
             fusion_ids_list = list(fusion_ids)
-            # 如果 id1 和 id2 相同，只请求一次
-            if id1 == id2:
-                fusion_ids_list = [fusion_ids_list[0]]
             
             # 并行检查图片是否可访问
             tasks = [self.get_fusion_image(fid) for fid in fusion_ids_list]
             image_urls_raw = await asyncio.gather(*tasks)
-            image_urls = [url for url in image_urls_raw if url and url != "https://infinitefusion.gitlab.io/pokemon/question.png"]
+            image_urls = [url for url in image_urls_raw if url is not None]
             
             if not image_urls:
+                # 如果没有找到有效图片，显示默认的问号图片
                 chain = [
                     Comp.At(qq=event.get_sender_id()),
+                    Comp.Plain(f" 正在为你融合 {self._get_pokemon_name(id1)} 和 {self._get_pokemon_name(id2)}：\n"),
+                    Comp.Image.fromURL("https://infinitefusion.gitlab.io/pokemon/question.png"),
                     Comp.Plain(" 抱歉，获取融合图片失败，请稍后再试。")
                 ]
                 yield event.chain_result(chain)
