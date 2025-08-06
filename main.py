@@ -149,7 +149,7 @@ class PokemonFusionPlugin(Star):
         # 输入格式错误
         return None, None, "请输入一个或两个宝可梦的名字\n例如：/融合 皮卡丘+妙蛙种子\n或者：/融合 皮卡丘（将随机选择另一个宝可梦）"
 
-    @filter.command("融合", aliases=["宝可梦融合"])
+    @filter.command("融合", alias=["宝可梦融合"])
     async def fusion(self, event: AstrMessageEvent):
         """宝可梦融合！
         
@@ -220,7 +220,7 @@ class PokemonFusionPlugin(Star):
             ]
             yield event.chain_result(chain)
             
-    @filter.command("宝可梦切换源", aliases=["融合切换源"])
+    @filter.command("宝可梦切换源", alias=["融合切换源"])
     async def switch_source(self, event: AstrMessageEvent):
         """切换图片源
         
