@@ -1,5 +1,5 @@
-name: pokemon_fusion # 这是你的插件的唯一识别名。
-desc: 宝可梦融合插件，支持指定宝可梦融合和随机融合。 # 插件简短描述
-version: v1.0.0 # 插件版本号。格式：v1.1.1 或者 v1.1
-author: sugayoiya # 作者
-repo: https://github.com/sugayoiya/astrbot_plugin_pokemon_fusion # 插件的仓库地址
+name: "pokemon_fusion"
+desc: "宝可梦融合插件，支持指定宝可梦融合和随机融合。"
+version: "v1.0.0"
+author: "sugayoiya"
+repo: "https://github.com/sugayoiya/astrbot_plugin_pokemon_fusion"
