@@ -39,11 +39,13 @@ class PokemonFusionPlugin(Star):
         try:
             # 创建 aiohttp session
             self.session = aiohttp.ClientSession()
-            # 确保数据目录存在
-            self.data_dir.mkdir(parents=True, exist_ok=True)
-            pokemon_file = self.data_dir / "pokemons.json"
+            # 直接从插件目录读取固定文件
+            plugin_file = Path(__file__).resolve().parent / "pokemons.json"
+            if not plugin_file.exists():
+                logger.error("找不到内置宝可梦数据文件")
+                raise FileNotFoundError(str(plugin_file))
             # 加载数据
-            with open(pokemon_file, "r", encoding="utf8") as f:
+            with open(plugin_file, "r", encoding="utf8") as f:
                 self.pokemon_data = json.load(f)
             # 创建 ID 到名字的反向映射
             self.pokemon_id_map = {str(v): k for k, v in self.pokemon_data.items()}
